@@ -63,11 +63,9 @@
       backdrop-filter: blur(8px);
     }
 
-    #toggleLoader { top: 12px; }
-    #toggleFile { top: 54px; font-size: 15px; }
-    #toggleNotepad { top: 96px; font-size: 15px; }
+    #toggleFile { top: 12px; font-size: 15px; }
+    #toggleNotepad { top: 54px; font-size: 15px; }
 
-    #loaderPanel,
     #filePanel,
     #notepadPanel,
     #embedPanel {
@@ -98,7 +96,6 @@
       width: min(360px, calc(100vw - 76px));
     }
 
-    #loaderPanel.hidden,
     #filePanel.hidden,
     #notepadPanel.hidden,
     #embedPanel.hidden {
@@ -195,20 +192,10 @@
   </style>
 </head>
 <body>
-  <button id="toggleLoader" class="floating-btn" title="Show or hide PDF loader">+</button>
   <button id="toggleFile" class="floating-btn" title="Load PDF from files">📄</button>
   <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
 
-  <div id="loaderPanel" class="hidden">
-    <div class="loader-title">Paste a direct PDF URL or a Google Drive share link</div>
-    <div class="loader-row">
-      <input id="pdfInput" type="text" placeholder="Paste Google Drive PDF link here" />
-      <button id="loadBtn">Load PDF</button>
-    </div>
-    <div id="hint">Google Drive links will open in a lightweight Drive preview. Direct PDF links will render on the blank canvas.</div>
-  </div>
-
-  <div id="filePanel" class="hidden">
+    <div id="filePanel" class="hidden">
     <div class="notepad-title">Add PDF from files</div>
     <input id="fileInput" type="file" accept="application/pdf" style="display:none;" />
     <div class="notepad-actions" style="justify-content:flex-start; margin-top:0;">
@@ -235,15 +222,15 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
 
     const viewer = document.getElementById('viewer');
-    const toggleLoader = document.getElementById('toggleLoader');
+    
     const toggleFile = document.getElementById('toggleFile');
     const toggleNotepad = document.getElementById('toggleNotepad');
-    const loaderPanel = document.getElementById('loaderPanel');
+    
     const filePanel = document.getElementById('filePanel');
     const notepadPanel = document.getElementById('notepadPanel');
-    const pdfInput = document.getElementById('pdfInput');
+    
     const fileInput = document.getElementById('fileInput');
-    const loadBtn = document.getElementById('loadBtn');
+    
     const pickFileBtn = document.getElementById('pickFileBtn');
     const statusBox = document.getElementById('status');
     const notepad = document.getElementById('notepad');
@@ -261,10 +248,7 @@
       statusBox.textContent = '';
     }
 
-    function getQueryPdf() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('pdf');
-    }
+    
 
     function extractDriveFileId(url) {
       if (!url) return null;
@@ -413,19 +397,13 @@
       }
     }
 
-    function loadFromInput() {
-      const url = normalizeStoredUrl(pdfInput.value);
-      if (!url) return;
-      const next = new URL(window.location.href);
-      next.searchParams.set('pdf', url);
-      window.history.replaceState({}, '', next.toString());
+    , '', next.toString());
       renderSource(url);
       loaderPanel.classList.add('hidden');
       toggleLoader.textContent = '+';
     }
 
-    toggleLoader.addEventListener('click', () => {
-      const hidden = loaderPanel.classList.toggle('hidden');
+    
       toggleLoader.textContent = hidden ? '+' : '×';
     });
 
@@ -439,7 +417,7 @@
       toggleNotepad.textContent = hidden ? '✎' : '×';
     });
 
-    loadBtn.addEventListener('click', loadFromInput);
+    
     pickFileBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files && fileInput.files[0];
@@ -450,8 +428,7 @@
       toggleFile.textContent = '📄';
       showStatus(`Loaded ${file.name} from files.`);
     });
-    pdfInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') loadFromInput();
+    
     });
 
     notepad.value = loadSavedNotes();
@@ -464,11 +441,7 @@
       saveNotes('');
     });
 
-    const initialPdf = getQueryPdf();
-    if (initialPdf) {
-      pdfInput.value = initialPdf;
-      renderSource(initialPdf);
-    }
+    
   </script>
   <button id="embedBtn" class="floating-btn" style="top:138px; font-size:14px;">⧉</button>
 
