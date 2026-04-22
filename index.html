@@ -39,6 +39,14 @@
       padding: 0;
     }
 
+    iframe.drive-frame {
+      width: 100%;
+      height: 100vh;
+      border: 0;
+      display: block;
+      background: #ffffff;
+    }
+
     .overlay {
       position: absolute;
       inset: 0;
@@ -476,6 +484,30 @@
       window.history.replaceState({}, '', next.toString());
     }
 
+    function extractDriveFileId(url) {
+      if (!url) return null;
+      const patterns = [
+        /\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /[?&]id=([a-zA-Z0-9_-]+)/,
+        /\/d\/([a-zA-Z0-9_-]+)/
+      ];
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+      }
+      return null;
+    }
+
+    function isDriveLikeUrl(url) {
+      return /drive\.google\.com/i.test(url || '');
+    }
+
+    function getDrivePreviewUrl(input) {
+      const fileId = extractDriveFileId(input);
+      if (!fileId) return null;
+      return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+
     function getSessionData() {
       return {
         hotspots: getHotspotsStore(),
@@ -886,9 +918,30 @@
       });
     }
 
+    async function renderDrivePreview(url, label = 'Google Drive PDF') {
+      viewer.innerHTML = '';
+      const previewUrl = getDrivePreviewUrl(url);
+      if (!previewUrl) {
+        showStatus(`Could not open ${label}.`);
+        return;
+      }
+      const frame = document.createElement('iframe');
+      frame.className = 'drive-frame';
+      frame.src = previewUrl;
+      frame.allow = 'autoplay';
+      viewer.appendChild(frame);
+      showStatus('Opened with Google Drive preview.');
+      setTimeout(hideStatus, 1800);
+    }
+
     async function renderPdfFromUrl(url, label = 'Remote PDF') {
       viewer.innerHTML = '';
       try {
+        if (isDriveLikeUrl(url)) {
+          await renderDrivePreview(url, label);
+          return;
+        }
+
         const pdf = await pdfjsLib.getDocument(url).promise;
         currentDocKey = makeDocKey(label, url);
         const existing = getCurrentHotspots();
@@ -928,6 +981,10 @@
         hideStatus();
       } catch (error) {
         console.error(error);
+        if (isDriveLikeUrl(url)) {
+          await renderDrivePreview(url, label);
+          return;
+        }
         viewer.innerHTML = '';
         showStatus(`Could not render ${label}.`);
       }
@@ -996,8 +1053,6 @@
       await renderPdfFromUrl(url, 'Remote PDF');
       urlPanel.classList.add('hidden');
       toggleUrlPanel.textContent = '＋';
-      showStatus('Loaded PDF from URL.');
-      setTimeout(hideStatus, 1600);
     });
 
     pdfUrlInput.addEventListener('keydown', async (e) => {
