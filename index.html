@@ -1046,7 +1046,18 @@
     }
 
     toggleUrlPanel.addEventListener('click', () => {
-      const hidden = urlPanel.classList.toggle('hidden');
+      const isHidden = urlPanel.classList.toggle('hidden');
+
+      // collapse other panels for consistent behavior
+      if (!isHidden) {
+        notepadPanel.classList.add('hidden');
+        embedPanel.classList.add('hidden');
+        toggleNotepad.textContent = '✎';
+        embedBtn.textContent = '⧉';
+      }
+
+      toggleUrlPanel.textContent = isHidden ? '＋' : '×';
+    });
       toggleUrlPanel.textContent = hidden ? '＋' : '×';
     });
 
