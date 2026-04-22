@@ -44,9 +44,8 @@
       background: #ffffff;
     }
 
-    #toggleLoader {
+    .floating-btn {
       position: fixed;
-      top: 12px;
       left: 12px;
       z-index: 1000;
       width: 34px;
@@ -61,11 +60,15 @@
       justify-content: center;
       font-size: 16px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      backdrop-filter: blur(8px);
     }
 
-    #loaderPanel {
+    #toggleLoader { top: 12px; }
+    #toggleNotepad { top: 54px; font-size: 15px; }
+
+    #loaderPanel,
+    #notepadPanel {
       position: fixed;
-      top: 12px;
       left: 56px;
       z-index: 999;
       width: min(420px, calc(100vw - 76px));
@@ -75,15 +78,24 @@
       padding: 12px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.10);
       transition: opacity 0.18s ease, transform 0.18s ease;
+      backdrop-filter: blur(8px);
     }
 
-    #loaderPanel.hidden {
+    #loaderPanel { top: 12px; }
+    #notepadPanel {
+      top: 54px;
+      width: min(360px, calc(100vw - 76px));
+    }
+
+    #loaderPanel.hidden,
+    #notepadPanel.hidden {
       opacity: 0;
       pointer-events: none;
       transform: translateY(-8px);
     }
 
-    .loader-title {
+    .loader-title,
+    .notepad-title {
       font-size: 13px;
       color: #666;
       margin-bottom: 8px;
@@ -106,7 +118,8 @@
       background: #fff;
     }
 
-    #loadBtn {
+    #loadBtn,
+    #clearNotesBtn {
       border: 1px solid rgba(0,0,0,0.08);
       border-radius: 12px;
       padding: 10px 12px;
@@ -116,7 +129,8 @@
       white-space: nowrap;
     }
 
-    #hint {
+    #hint,
+    #noteHint {
       margin-top: 8px;
       font-size: 12px;
       color: #888;
@@ -142,10 +156,32 @@
     #status.hidden {
       display: none;
     }
+
+    #notepad {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 12px;
+      padding: 12px 14px;
+      outline: none;
+      font-size: 14px;
+      line-height: 1.5;
+      background: #fff;
+      color: #333;
+      font-family: Inter, Arial, sans-serif;
+    }
+
+    .notepad-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
-  <button id="toggleLoader" title="Show or hide PDF loader">+</button>
+  <button id="toggleLoader" class="floating-btn" title="Show or hide PDF loader">+</button>
+  <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
 
   <div id="loaderPanel" class="hidden">
     <div class="loader-title">Paste a direct PDF URL or a Google Drive share link</div>
@@ -154,6 +190,15 @@
       <button id="loadBtn">Load PDF</button>
     </div>
     <div id="hint">Google Drive links will open in a lightweight Drive preview. Direct PDF links will render on the blank canvas.</div>
+  </div>
+
+  <div id="notepadPanel" class="hidden">
+    <div class="notepad-title">Quick notepad</div>
+    <textarea id="notepad" placeholder="Write notes here..."></textarea>
+    <div class="notepad-actions">
+      <button id="clearNotesBtn">Clear</button>
+    </div>
+    <div id="noteHint">Your notes stay saved in this browser.</div>
   </div>
 
   <div id="viewer"></div>
@@ -166,10 +211,16 @@
 
     const viewer = document.getElementById('viewer');
     const toggleLoader = document.getElementById('toggleLoader');
+    const toggleNotepad = document.getElementById('toggleNotepad');
     const loaderPanel = document.getElementById('loaderPanel');
+    const notepadPanel = document.getElementById('notepadPanel');
     const pdfInput = document.getElementById('pdfInput');
     const loadBtn = document.getElementById('loadBtn');
     const statusBox = document.getElementById('status');
+    const notepad = document.getElementById('notepad');
+    const clearNotesBtn = document.getElementById('clearNotesBtn');
+
+    const NOTE_KEY = 'embed_beta_notepad';
 
     function showStatus(message) {
       statusBox.textContent = message;
@@ -214,6 +265,20 @@
       const raw = (input || '').trim();
       if (!raw) return '';
       return raw;
+    }
+
+    function loadSavedNotes() {
+      try {
+        return localStorage.getItem(NOTE_KEY) || '';
+      } catch {
+        return '';
+      }
+    }
+
+    function saveNotes(value) {
+      try {
+        localStorage.setItem(NOTE_KEY, value);
+      } catch {}
     }
 
     async function renderDrivePreview(url) {
@@ -296,9 +361,24 @@
       toggleLoader.textContent = hidden ? '+' : '×';
     });
 
+    toggleNotepad.addEventListener('click', () => {
+      const hidden = notepadPanel.classList.toggle('hidden');
+      toggleNotepad.textContent = hidden ? '✎' : '×';
+    });
+
     loadBtn.addEventListener('click', loadFromInput);
     pdfInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadFromInput();
+    });
+
+    notepad.value = loadSavedNotes();
+    notepad.addEventListener('input', () => {
+      saveNotes(notepad.value);
+    });
+
+    clearNotesBtn.addEventListener('click', () => {
+      notepad.value = '';
+      saveNotes('');
     });
 
     const initialPdf = getQueryPdf();
