@@ -10,7 +10,9 @@
     body {
       background: #ffffff;
       overflow: auto;
+      font-family: Inter, Arial, sans-serif;
     }
+
     #viewer {
       min-height: 100vh;
       display: flex;
@@ -18,20 +20,113 @@
       align-items: center;
       gap: 0;
       background: #ffffff;
+      padding-top: 0;
     }
+
     .page {
       position: relative;
       line-height: 0;
     }
+
     canvas {
       display: block;
       background: #ffffff;
       margin: 0;
       padding: 0;
     }
+
+    #toggleLoader {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1000;
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      color: #444;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    #loaderPanel {
+      position: fixed;
+      top: 12px;
+      left: 56px;
+      z-index: 999;
+      width: min(420px, calc(100vw - 76px));
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    #loaderPanel.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px);
+    }
+
+    .loader-title {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .loader-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #pdfInput {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    #loadBtn {
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    #hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #888;
+      line-height: 1.35;
+    }
   </style>
 </head>
 <body>
+  <button id="toggleLoader" title="Show or hide PDF loader">+</button>
+
+  <div id="loaderPanel" class="hidden">
+    <div class="loader-title">Paste a direct PDF URL or a Google Drive share link</div>
+    <div class="loader-row">
+      <input id="pdfInput" type="text" placeholder="Paste Google Drive PDF link here" />
+      <button id="loadBtn">Load PDF</button>
+    </div>
+    <div id="hint">For Google Drive links, the app will try to convert the share link into a previewable PDF link automatically.</div>
+  </div>
+
   <div id="viewer"></div>
 
   <script type="module">
@@ -40,47 +135,109 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
 
     const viewer = document.getElementById('viewer');
+    const toggleLoader = document.getElementById('toggleLoader');
+    const loaderPanel = document.getElementById('loaderPanel');
+    const pdfInput = document.getElementById('pdfInput');
+    const loadBtn = document.getElementById('loadBtn');
 
-    function getPdfSource() {
+    function getQueryPdf() {
       const params = new URLSearchParams(window.location.search);
       return params.get('pdf');
+    }
+
+    function extractDriveFileId(url) {
+      if (!url) return null;
+      const patterns = [
+        /\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /[?&]id=([a-zA-Z0-9_-]+)/,
+        /\/d\/([a-zA-Z0-9_-]+)/
+      ];
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+      }
+      return null;
+    }
+
+    function normalizePdfUrl(input) {
+      const raw = (input || '').trim();
+      if (!raw) return '';
+
+      if (raw.includes('drive.google.com')) {
+        const fileId = extractDriveFileId(raw);
+        if (fileId) {
+          return `https://drive.google.com/uc?export=download&id=${fileId}`;
+        }
+      }
+
+      return raw;
     }
 
     async function renderPdf(url) {
       if (!url) return;
       viewer.innerHTML = '';
 
-      const pdf = await pdfjsLib.getDocument(url).promise;
+      try {
+        const pdf = await pdfjsLib.getDocument({ url }).promise;
 
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1.35 });
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1.35 });
 
-        const pageWrap = document.createElement('div');
-        pageWrap.className = 'page';
+          const pageWrap = document.createElement('div');
+          pageWrap.className = 'page';
 
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        const ratio = window.devicePixelRatio || 1;
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          const ratio = window.devicePixelRatio || 1;
 
-        canvas.width = Math.floor(viewport.width * ratio);
-        canvas.height = Math.floor(viewport.height * ratio);
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
+          canvas.width = Math.floor(viewport.width * ratio);
+          canvas.height = Math.floor(viewport.height * ratio);
+          canvas.style.width = `${viewport.width}px`;
+          canvas.style.height = `${viewport.height}px`;
 
-        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-        pageWrap.appendChild(canvas);
-        viewer.appendChild(pageWrap);
+          pageWrap.appendChild(canvas);
+          viewer.appendChild(pageWrap);
 
-        await page.render({
-          canvasContext: context,
-          viewport
-        }).promise;
+          await page.render({
+            canvasContext: context,
+            viewport
+          }).promise;
+        }
+      } catch (error) {
+        console.error(error);
+        viewer.innerHTML = '';
       }
     }
 
-    renderPdf(getPdfSource());
+    function loadFromInput() {
+      const url = normalizePdfUrl(pdfInput.value);
+      if (!url) return;
+      const next = new URL(window.location.href);
+      next.searchParams.set('pdf', url);
+      window.history.replaceState({}, '', next.toString());
+      renderPdf(url);
+      loaderPanel.classList.add('hidden');
+      toggleLoader.textContent = '+';
+    }
+
+    toggleLoader.addEventListener('click', () => {
+      const hidden = loaderPanel.classList.toggle('hidden');
+      toggleLoader.textContent = hidden ? '+' : '×';
+    });
+
+    loadBtn.addEventListener('click', loadFromInput);
+    pdfInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadFromInput();
+    });
+
+    const initialPdf = getQueryPdf();
+    if (initialPdf) {
+      pdfInput.value = initialPdf;
+      renderPdf(initialPdf);
+    }
   </script>
 </body>
 </html>
