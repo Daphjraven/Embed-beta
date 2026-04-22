@@ -21,6 +21,7 @@
       gap: 0;
       background: #ffffff;
       padding-top: 0;
+      width: 100%;
     }
 
     .page {
@@ -33,6 +34,14 @@
       background: #ffffff;
       margin: 0;
       padding: 0;
+    }
+
+    iframe.drive-frame {
+      width: 100%;
+      height: 100vh;
+      border: 0;
+      display: block;
+      background: #ffffff;
     }
 
     #toggleLoader {
@@ -113,6 +122,26 @@
       color: #888;
       line-height: 1.35;
     }
+
+    #status {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      z-index: 1000;
+      max-width: min(520px, calc(100vw - 24px));
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+      color: #555;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    #status.hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -124,10 +153,11 @@
       <input id="pdfInput" type="text" placeholder="Paste Google Drive PDF link here" />
       <button id="loadBtn">Load PDF</button>
     </div>
-    <div id="hint">For Google Drive links, the app will try to convert the share link into a previewable PDF link automatically.</div>
+    <div id="hint">Google Drive links will open in a lightweight Drive preview. Direct PDF links will render on the blank canvas.</div>
   </div>
 
   <div id="viewer"></div>
+  <div id="status" class="hidden"></div>
 
   <script type="module">
     import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs';
@@ -139,6 +169,17 @@
     const loaderPanel = document.getElementById('loaderPanel');
     const pdfInput = document.getElementById('pdfInput');
     const loadBtn = document.getElementById('loadBtn');
+    const statusBox = document.getElementById('status');
+
+    function showStatus(message) {
+      statusBox.textContent = message;
+      statusBox.classList.remove('hidden');
+    }
+
+    function hideStatus() {
+      statusBox.classList.add('hidden');
+      statusBox.textContent = '';
+    }
 
     function getQueryPdf() {
       const params = new URLSearchParams(window.location.search);
@@ -159,26 +200,41 @@
       return null;
     }
 
-    function normalizePdfUrl(input) {
+    function isDriveLikeUrl(url) {
+      return /drive\.google\.com/i.test(url || '');
+    }
+
+    function getDrivePreviewUrl(input) {
+      const fileId = extractDriveFileId(input);
+      if (!fileId) return null;
+      return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+
+    function normalizeStoredUrl(input) {
       const raw = (input || '').trim();
       if (!raw) return '';
-
-      if (raw.includes('drive.google.com')) {
-        const fileId = extractDriveFileId(raw);
-        if (fileId) {
-          return `https://drive.google.com/uc?export=download&id=${fileId}`;
-        }
-      }
-
       return raw;
     }
 
-    async function renderPdf(url) {
-      if (!url) return;
+    async function renderDrivePreview(url) {
       viewer.innerHTML = '';
+      const previewUrl = getDrivePreviewUrl(url);
+      if (!previewUrl) {
+        showStatus('Could not detect a Google Drive file ID from that link.');
+        return;
+      }
+      const frame = document.createElement('iframe');
+      frame.className = 'drive-frame';
+      frame.src = previewUrl;
+      frame.allow = 'autoplay';
+      viewer.appendChild(frame);
+      hideStatus();
+    }
 
+    async function renderPdfCanvas(url) {
+      viewer.innerHTML = '';
       try {
-        const pdf = await pdfjsLib.getDocument({ url }).promise;
+        const pdf = await pdfjsLib.getDocument(url).promise;
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
@@ -206,19 +262,31 @@
             viewport
           }).promise;
         }
+        hideStatus();
       } catch (error) {
         console.error(error);
         viewer.innerHTML = '';
+        showStatus('This PDF could not be rendered on the blank canvas. If it is from Google Drive, try the original share link instead of a uc/export link.');
+      }
+    }
+
+    async function renderSource(url) {
+      const raw = normalizeStoredUrl(url);
+      if (!raw) return;
+      if (isDriveLikeUrl(raw)) {
+        await renderDrivePreview(raw);
+      } else {
+        await renderPdfCanvas(raw);
       }
     }
 
     function loadFromInput() {
-      const url = normalizePdfUrl(pdfInput.value);
+      const url = normalizeStoredUrl(pdfInput.value);
       if (!url) return;
       const next = new URL(window.location.href);
       next.searchParams.set('pdf', url);
       window.history.replaceState({}, '', next.toString());
-      renderPdf(url);
+      renderSource(url);
       loaderPanel.classList.add('hidden');
       toggleLoader.textContent = '+';
     }
@@ -236,7 +304,7 @@
     const initialPdf = getQueryPdf();
     if (initialPdf) {
       pdfInput.value = initialPdf;
-      renderPdf(initialPdf);
+      renderSource(initialPdf);
     }
   </script>
 </body>
