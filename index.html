@@ -193,7 +193,7 @@
       <input id="pdfInput" type="text" placeholder="Paste Google Drive PDF link here" />
       <button id="loadBtn">Load PDF</button>
     </div>
-    <div id="hint">Google Drive links will open in a lightweight Drive preview. Direct PDF links will render on the blank canvas.</div>
+    <div id="hint">Google Drive links will try a whiter Docs-style viewer first, then fall back to Drive preview. Direct PDF links will render on the blank canvas.</div>
   </div>
 
   <div id="notepadPanel" class="hidden">
@@ -265,6 +265,18 @@
       return `https://drive.google.com/file/d/${fileId}/preview`;
     }
 
+    function getDriveDownloadUrl(input) {
+      const fileId = extractDriveFileId(input);
+      if (!fileId) return null;
+      return `https://drive.google.com/uc?export=download&id=${fileId}`;
+    }
+
+    function getDriveDocsViewerUrl(input) {
+      const downloadUrl = getDriveDownloadUrl(input);
+      if (!downloadUrl) return null;
+      return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(downloadUrl)}`;
+    }
+
     function normalizeStoredUrl(input) {
       const raw = (input || '').trim();
       if (!raw) return '';
@@ -287,15 +299,18 @@
 
     async function renderDrivePreview(url) {
       viewer.innerHTML = '';
+      const docsViewerUrl = getDriveDocsViewerUrl(url);
       const previewUrl = getDrivePreviewUrl(url);
-      if (!previewUrl) {
+
+      if (!docsViewerUrl && !previewUrl) {
         showStatus('Could not detect a Google Drive file ID from that link.');
         return;
       }
+
       const frame = document.createElement('iframe');
       frame.className = 'drive-frame';
-      frame.src = previewUrl;
       frame.allow = 'autoplay';
+      frame.src = docsViewerUrl || previewUrl;
       viewer.appendChild(frame);
       hideStatus();
     }
