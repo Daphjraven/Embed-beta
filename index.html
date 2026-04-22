@@ -69,25 +69,136 @@
 
     .hotspot-note {
       position: absolute;
-      min-width: 180px;
-      max-width: 260px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.98);
+      min-width: 260px;
+      width: 320px;
+      min-height: 220px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.99);
       border: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+      box-shadow: 0 14px 36px rgba(0,0,0,0.16);
       font-size: 13px;
       line-height: 1.45;
       color: #444;
-      top: 18px;
-      left: 18px;
+      top: 22px;
+      left: 22px;
       display: none;
-      z-index: 4;
-      white-space: pre-wrap;
+      z-index: 20;
+      overflow: hidden;
     }
 
     .hotspot-note.visible {
       display: block;
+    }
+
+    .hotspot-window-bar {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px 0 12px;
+      background: rgba(248,248,248,0.98);
+      border-bottom: 1px solid rgba(0,0,0,0.07);
+      cursor: move;
+      user-select: none;
+    }
+
+    .hotspot-window-title {
+      font-size: 12px;
+      color: #666;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .hotspot-window-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hotspot-tool-btn {
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #fff;
+      border-radius: 10px;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      font-size: 12px;
+      color: #444;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hotspot-workspace {
+      position: relative;
+      width: 100%;
+      height: 240px;
+      background: #fff;
+      overflow: auto;
+    }
+
+    .hotspot-freeform {
+      position: relative;
+      width: 100%;
+      min-height: 100%;
+      background:
+        linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .hotspot-item {
+      position: absolute;
+      min-width: 100px;
+      min-height: 36px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.96);
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .hotspot-item.selected {
+      outline: 2px solid rgba(17,17,17,0.18);
+      outline-offset: 1px;
+    }
+
+    .hotspot-item-handle {
+      height: 26px;
+      background: rgba(247,247,247,0.98);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      cursor: move;
+    }
+
+    .hotspot-text-content {
+      padding: 10px 12px;
+      min-height: 52px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #333;
+      outline: none;
+      white-space: pre-wrap;
+    }
+
+    .hotspot-image-content {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      background: #fff;
+    }
+
+    .hotspot-resize {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.14);
+      cursor: nwse-resize;
     }
 
     .controls {
@@ -346,8 +457,300 @@
 
       const note = document.createElement('div');
       note.className = 'hotspot-note';
-      note.textContent = item.text;
+      note.style.left = `${item.windowLeft || 22}px`;
+      note.style.top = `${item.windowTop || 22}px`;
+
+      const bar = document.createElement('div');
+      bar.className = 'hotspot-window-bar';
+
+      const title = document.createElement('div');
+      title.className = 'hotspot-window-title';
+      title.textContent = `Hotspot ${item.label}`;
+
+      const actions = document.createElement('div');
+      actions.className = 'hotspot-window-actions';
+
+      const addTextBtn = document.createElement('button');
+      addTextBtn.className = 'hotspot-tool-btn';
+      addTextBtn.textContent = 'T';
+      addTextBtn.title = 'Add text box';
+
+      const addImageBtn = document.createElement('button');
+      addImageBtn.className = 'hotspot-tool-btn';
+      addImageBtn.textContent = '🖼';
+      addImageBtn.title = 'Add image';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'hotspot-tool-btn';
+      closeBtn.textContent = '×';
+      closeBtn.title = 'Close';
+
+      actions.appendChild(addTextBtn);
+      actions.appendChild(addImageBtn);
+      actions.appendChild(closeBtn);
+      bar.appendChild(title);
+      bar.appendChild(actions);
+
+      const workspace = document.createElement('div');
+      workspace.className = 'hotspot-workspace';
+      const freeform = document.createElement('div');
+      freeform.className = 'hotspot-freeform';
+      workspace.appendChild(freeform);
+      note.appendChild(bar);
+      note.appendChild(workspace);
       dot.appendChild(note);
+
+      const hiddenImageInput = document.createElement('input');
+      hiddenImageInput.type = 'file';
+      hiddenImageInput.accept = 'image/*';
+      hiddenImageInput.style.display = 'none';
+      note.appendChild(hiddenImageInput);
+
+      function updateHotspotRecord() {
+        const all = getCurrentHotspots().map(h => h.id === item.id ? item : h);
+        setCurrentHotspots(all);
+      }
+
+      function createTextItem(data = null) {
+        const entry = data || {
+          id: crypto.randomUUID(),
+          type: 'text',
+          x: 16,
+          y: 16,
+          w: 180,
+          h: 90,
+          text: 'Double-click to edit text'
+        };
+        const box = document.createElement('div');
+        box.className = 'hotspot-item';
+        box.style.left = `${entry.x}px`;
+        box.style.top = `${entry.y}px`;
+        box.style.width = `${entry.w}px`;
+        box.style.height = `${entry.h}px`;
+        box.dataset.itemId = entry.id;
+
+        const handle = document.createElement('div');
+        handle.className = 'hotspot-item-handle';
+        const content = document.createElement('div');
+        content.className = 'hotspot-text-content';
+        content.contentEditable = 'true';
+        content.textContent = entry.text || '';
+
+        const resize = document.createElement('div');
+        resize.className = 'hotspot-resize';
+
+        content.addEventListener('input', () => {
+          entry.text = content.textContent || '';
+          syncEntry(entry);
+        });
+
+        attachItemInteractions(box, handle, resize, entry);
+
+        box.appendChild(handle);
+        box.appendChild(content);
+        box.appendChild(resize);
+        freeform.appendChild(box);
+        return entry;
+      }
+
+      function createImageItem(data) {
+        const entry = {
+          id: data.id || crypto.randomUUID(),
+          type: 'image',
+          x: data.x ?? 22,
+          y: data.y ?? 22,
+          w: data.w ?? 180,
+          h: data.h ?? 140,
+          src: data.src
+        };
+        const box = document.createElement('div');
+        box.className = 'hotspot-item';
+        box.style.left = `${entry.x}px`;
+        box.style.top = `${entry.y}px`;
+        box.style.width = `${entry.w}px`;
+        box.style.height = `${entry.h}px`;
+        box.dataset.itemId = entry.id;
+
+        const handle = document.createElement('div');
+        handle.className = 'hotspot-item-handle';
+        const img = document.createElement('img');
+        img.className = 'hotspot-image-content';
+        img.src = entry.src;
+        img.alt = 'Hotspot image';
+        img.style.width = '100%';
+        img.style.height = `calc(100% - 26px)`;
+
+        const resize = document.createElement('div');
+        resize.className = 'hotspot-resize';
+
+        attachItemInteractions(box, handle, resize, entry);
+
+        box.appendChild(handle);
+        box.appendChild(img);
+        box.appendChild(resize);
+        freeform.appendChild(box);
+        return entry;
+      }
+
+      function syncEntry(entry) {
+        item.blocks = item.blocks || [];
+        const idx = item.blocks.findIndex(b => b.id === entry.id);
+        if (idx >= 0) item.blocks[idx] = entry;
+        else item.blocks.push(entry);
+        updateHotspotRecord();
+      }
+
+      function attachItemInteractions(box, handle, resize, entry) {
+        box.addEventListener('mousedown', () => {
+          freeform.querySelectorAll('.hotspot-item').forEach(el => el.classList.remove('selected'));
+          box.classList.add('selected');
+        });
+
+        handle.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startLeft = parseFloat(box.style.left);
+          const startTop = parseFloat(box.style.top);
+
+          function onMove(ev) {
+            const nextLeft = Math.max(0, startLeft + (ev.clientX - startX));
+            const nextTop = Math.max(0, startTop + (ev.clientY - startY));
+            box.style.left = `${nextLeft}px`;
+            box.style.top = `${nextTop}px`;
+            entry.x = nextLeft;
+            entry.y = nextTop;
+            syncEntry(entry);
+          }
+
+          function onUp() {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+          }
+
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+
+        resize.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = parseFloat(box.style.width);
+          const startH = parseFloat(box.style.height);
+
+          function onMove(ev) {
+            const nextW = Math.max(110, startW + (ev.clientX - startX));
+            const nextH = Math.max(60, startH + (ev.clientY - startY));
+            box.style.width = `${nextW}px`;
+            box.style.height = `${nextH}px`;
+            entry.w = nextW;
+            entry.h = nextH;
+            syncEntry(entry);
+          }
+
+          function onUp() {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+          }
+
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+
+        box.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!confirm('Delete this block?')) return;
+          item.blocks = (item.blocks || []).filter(b => b.id !== entry.id);
+          updateHotspotRecord();
+          box.remove();
+        });
+      }
+
+      function renderBlocks() {
+        freeform.innerHTML = '';
+        const blocks = item.blocks || [];
+        if (!blocks.length) {
+          const first = createTextItem();
+          syncEntry(first);
+          return;
+        }
+        blocks.forEach(block => {
+          if (block.type === 'image') createImageItem(block);
+          else createTextItem(block);
+        });
+      }
+
+      addTextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const entry = createTextItem({
+          id: crypto.randomUUID(),
+          type: 'text',
+          x: 18 + (item.blocks?.length || 0) * 10,
+          y: 18 + (item.blocks?.length || 0) * 10,
+          w: 180,
+          h: 90,
+          text: 'New text'
+        });
+        syncEntry(entry);
+      });
+
+      addImageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hiddenImageInput.click();
+      });
+
+      hiddenImageInput.addEventListener('change', async () => {
+        const file = hiddenImageInput.files && hiddenImageInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const entry = createImageItem({
+            src: reader.result,
+            x: 22,
+            y: 22,
+            w: 180,
+            h: 140
+          });
+          syncEntry(entry);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        note.classList.remove('visible');
+      });
+
+      bar.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.hotspot-tool-btn')) return;
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startLeft = parseFloat(note.style.left);
+        const startTop = parseFloat(note.style.top);
+
+        function onMove(ev) {
+          const nextLeft = Math.max(0, startLeft + (ev.clientX - startX));
+          const nextTop = Math.max(0, startTop + (ev.clientY - startY));
+          note.style.left = `${nextLeft}px`;
+          note.style.top = `${nextTop}px`;
+          item.windowLeft = nextLeft;
+          item.windowTop = nextTop;
+          updateHotspotRecord();
+        }
+
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+
+      renderBlocks();
 
       dot.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -359,12 +762,13 @@
 
       dot.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        const updated = prompt('Edit hotspot text:', item.text);
+        const updated = prompt('Rename hotspot label number:', item.label);
         if (updated === null) return;
-        item.text = updated.trim();
-        note.textContent = item.text || '(empty)';
-        const all = getCurrentHotspots().map(h => h.id === item.id ? item : h);
-        setCurrentHotspots(all);
+        item.label = updated.trim() || item.label;
+        dot.textContent = item.label;
+        dot.appendChild(note);
+        title.textContent = `Hotspot ${item.label}`;
+        updateHotspotRecord();
       });
 
       dot.addEventListener('contextmenu', (e) => {
@@ -403,7 +807,20 @@
           x: +x.toFixed(3),
           y: +y.toFixed(3),
           text: text.trim() || '(empty)',
-          label: hotspotCounter
+          label: hotspotCounter,
+          windowLeft: 22,
+          windowTop: 22,
+          blocks: [
+            {
+              id: crypto.randomUUID(),
+              type: 'text',
+              x: 16,
+              y: 16,
+              w: 180,
+              h: 90,
+              text: text.trim() || '(empty)'
+            }
+          ]
         };
 
         const all = getCurrentHotspots();
