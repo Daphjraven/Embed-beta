@@ -6,15 +6,12 @@
   <title>Interactive PDF Study Page</title>
   <style>
     :root {
-      --bg: #f7f6f3;
       --paper: #ffffff;
       --text: #2f3437;
-      --muted: #6b6f76;
-      --line: rgba(55, 53, 47, 0.12);
+      --muted: #787774;
       --accent: #2383e2;
-      --accent-soft: rgba(35, 131, 226, 0.12);
-      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --radius: 18px;
+      --accent-soft: rgba(35, 131, 226, 0.1);
+      --radius: 16px;
     }
 
     * { box-sizing: border-box; }
@@ -30,77 +27,44 @@
       min-height: 100vh;
       display: flex;
       justify-content: center;
-      padding: 24px;
+      padding: 0;
+      background: transparent;
     }
 
     .app {
-      width: min(1100px, 100%);
+      width: min(920px, 100%);
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
-      gap: 20px;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 16px;
       align-items: start;
+      background: transparent;
     }
 
-    .paper-shell {
-      background: var(--paper);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
+    .paper-shell,
+    .sidebar {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
     }
 
-    .paper-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,0.88);
-      backdrop-filter: blur(8px);
-      position: sticky;
-      top: 0;
-      z-index: 5;
-    }
-
-    .paper-toolbar h1 {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-
-    .toolbar-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    button {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: 0.15s ease;
-    }
-
-    button:hover {
-      border-color: rgba(35,131,226,0.32);
-      background: #fafcff;
-    }
-
-    button.primary {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
+    .paper-toolbar,
+    .toolbar-actions,
+    .footer-note,
+    .meta button,
+    #showAnswerBtn,
+    #toggleHotspotsBtn,
+    #resetBtn,
+    #checkBtn,
+    #clearBtn,
+    .hotspot {
+      display: none !important;
     }
 
     .paper-wrap {
-      padding: clamp(14px, 2.5vw, 28px);
-      background: linear-gradient(to bottom, #fafafa, #f6f6f5);
+      padding: 0;
+      background: transparent;
     }
 
     .paper-stage {
@@ -108,9 +72,8 @@
       width: 100%;
       aspect-ratio: 0.78;
       background: white;
-      border-radius: 14px;
+      border-radius: 0;
       overflow: hidden;
-      border: 1px solid rgba(55,53,47,0.08);
       margin-inline: auto;
     }
 
@@ -125,52 +88,15 @@
       pointer-events: none;
     }
 
-    .hotspot {
-      position: absolute;
-      border: 2px solid rgba(35, 131, 226, 0.55);
-      background: rgba(35, 131, 226, 0.08);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: 0.18s ease;
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
-      padding: 6px;
-    }
-
-    .hotspot:hover,
-    .hotspot.active {
-      background: rgba(35, 131, 226, 0.16);
-      border-color: rgba(35, 131, 226, 0.9);
-      box-shadow: 0 8px 18px rgba(35, 131, 226, 0.16);
-    }
-
-    .hotspot-badge {
-      min-width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      background: white;
-      border: 1px solid rgba(35,131,226,0.35);
-      display: grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent);
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-    }
-
     .sidebar {
-      background: rgba(255,255,255,0.92);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      padding: 18px;
+      padding: 4px 0 0;
       position: sticky;
-      top: 24px;
+      top: 12px;
+      min-width: 0;
     }
 
     .eyebrow {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -179,35 +105,38 @@
     }
 
     .sidebar h2 {
-      margin: 0 0 12px;
-      font-size: 20px;
+      margin: 0 0 10px;
+      font-size: 24px;
       line-height: 1.15;
       letter-spacing: -0.02em;
+      font-weight: 700;
     }
 
     .sidebar p {
-      margin: 0 0 14px;
+      margin: 0 0 12px;
       color: var(--muted);
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1.55;
     }
 
     .question-card {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 14px;
-      background: #fff;
-      margin-top: 14px;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
+      margin-top: 18px;
     }
 
     .question-card h3 {
-      margin: 0 0 10px;
-      font-size: 16px;
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.25;
+      font-weight: 700;
     }
 
     .question-card label {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       margin-bottom: 8px;
       color: var(--muted);
@@ -215,66 +144,62 @@
 
     textarea, input[type="text"] {
       width: 100%;
-      border: 1px solid var(--line);
+      border: none;
       border-radius: 12px;
-      padding: 12px 13px;
+      padding: 0;
       font: inherit;
       color: inherit;
       outline: none;
-      resize: vertical;
-      background: #fff;
+      resize: none;
+      background: transparent;
+      min-height: 140px;
     }
 
-    textarea:focus, input[type="text"]:focus {
-      border-color: rgba(35,131,226,0.6);
-      box-shadow: 0 0 0 4px rgba(35,131,226,0.09);
+    textarea::placeholder {
+      color: var(--muted);
     }
 
     .meta {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-top: 10px;
+      margin-top: 0;
+      margin-bottom: 10px;
     }
 
     .pill {
       background: var(--accent-soft);
       color: var(--accent);
       border-radius: 999px;
-      padding: 5px 9px;
+      padding: 4px 8px;
       font-size: 12px;
       font-weight: 600;
     }
 
     .answer-box {
-      margin-top: 12px;
-      border-top: 1px dashed var(--line);
-      padding-top: 12px;
-      display: none;
+      margin-top: 18px;
+      padding-top: 0;
+      display: block;
+      border-top: none;
     }
 
     .answer-box.show { display: block; }
 
     .empty-state {
-      border: 1px dashed var(--line);
-      border-radius: 16px;
-      padding: 16px;
-      background: linear-gradient(to bottom right, #fff, #fafafa);
-    }
-
-    .footer-note {
-      margin-top: 16px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.5;
+      display: none;
     }
 
     @media (max-width: 900px) {
       .app {
+        width: min(700px, 100%);
         grid-template-columns: 1fr;
+        gap: 18px;
       }
       .sidebar {
         position: static;
+      }
+      .sidebar h2 {
+        font-size: 22px;
       }
     }
   </style>
@@ -282,15 +207,6 @@
 <body>
   <main class="app">
     <section class="paper-shell">
-      <div class="paper-toolbar">
-        <h1>Interactive PDF Study Page</h1>
-        <div class="toolbar-actions">
-          <button id="toggleHotspotsBtn">Hide hotspots</button>
-          <button id="resetBtn">Reset</button>
-          <button class="primary" id="showAnswerBtn">Show answer</button>
-        </div>
-      </div>
-
       <div class="paper-wrap">
         <div class="paper-stage" id="paperStage">
           <img
@@ -308,9 +224,7 @@
       <h2 id="panelTitle">Select a highlighted region</h2>
       <p id="panelDescription">Click a hotspot on the page to open a question tied to that exact part of the PDF page.</p>
 
-      <div class="empty-state" id="emptyState">
-        Add hotspots over important definitions, equations, figures, or paragraphs. This feels very natural inside Notion because the page stays clean and white while the interaction lives in a soft side panel.
-      </div>
+      
 
       <div class="question-card" id="questionCard" hidden>
         <div class="meta" id="meta"></div>
@@ -318,19 +232,14 @@
         <p id="questionPrompt"></p>
         <label for="responseBox">Your response</label>
         <textarea id="responseBox" rows="6" placeholder="Type your answer, summary, derivation, or annotation here..."></textarea>
-        <div class="meta">
-          <button id="checkBtn">Check yourself</button>
-          <button id="clearBtn">Clear</button>
-        </div>
+        
         <div class="answer-box" id="answerBox">
           <label>Suggested answer</label>
           <div id="answerText"></div>
         </div>
       </div>
 
-      <div class="footer-note">
-        Best embed look in Notion: use a transparent page background, a white paper card, soft border, and avoid dark app chrome. Host on Vercel or GitHub Pages, then paste the URL into a Notion embed block.
-      </div>
+      
     </aside>
   </main>
 
@@ -338,42 +247,14 @@
     const hotspots = [
       {
         id: 1,
-        x: 47,
-        y: 12,
-        w: 38,
-        h: 11,
         title: 'Chapter title',
         prompt: 'What is the central topic introduced by this chapter title, and why is it important in quantum chemistry?',
         answer: 'This chapter introduces the Schrödinger equation and the particle-in-a-box model. The Schrödinger equation is the fundamental equation of quantum mechanics because it is used to determine wave functions and the allowed energies of quantum systems.',
         tags: ['overview', 'concept']
-      },
-      {
-        id: 2,
-        x: 24,
-        y: 45,
-        w: 58,
-        h: 20,
-        title: 'Introductory paragraph',
-        prompt: 'Summarize what the text says about wave functions and stationary-state wave functions.',
-        answer: 'The text explains that solutions to the Schrödinger equation are wave functions. When time is not included as a variable, the solutions are stationary-state wave functions, which do not depend on time.',
-        tags: ['reading check', 'summary']
-      },
-      {
-        id: 3,
-        x: 25,
-        y: 84,
-        w: 49,
-        h: 7,
-        title: 'Section 3-1 heading',
-        prompt: 'Based on the heading alone, what is the role of the Schrödinger equation?',
-        answer: 'It is the equation used to find the wave function of a particle.',
-        tags: ['heading', 'quick recall']
       }
     ];
 
-    const paperStage = document.getElementById('paperStage');
     const questionCard = document.getElementById('questionCard');
-    const emptyState = document.getElementById('emptyState');
     const panelTitle = document.getElementById('panelTitle');
     const panelDescription = document.getElementById('panelDescription');
     const questionTitle = document.getElementById('questionTitle');
@@ -382,82 +263,21 @@
     const answerBox = document.getElementById('answerBox');
     const meta = document.getElementById('meta');
     const responseBox = document.getElementById('responseBox');
-    const toggleHotspotsBtn = document.getElementById('toggleHotspotsBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const showAnswerBtn = document.getElementById('showAnswerBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const checkBtn = document.getElementById('checkBtn');
 
-    let activeId = null;
-    let hotspotsVisible = true;
-
-    function renderHotspots() {
-      paperStage.querySelectorAll('.hotspot').forEach(el => el.remove());
-
-      hotspots.forEach(item => {
-        const el = document.createElement('button');
-        el.className = 'hotspot';
-        if (item.id === activeId) el.classList.add('active');
-        el.style.left = item.x + '%';
-        el.style.top = item.y + '%';
-        el.style.width = item.w + '%';
-        el.style.height = item.h + '%';
-        el.style.display = hotspotsVisible ? 'flex' : 'none';
-        el.setAttribute('aria-label', item.title);
-        el.innerHTML = `<span class="hotspot-badge">${item.id}</span>`;
-        el.addEventListener('click', () => selectHotspot(item.id));
-        paperStage.appendChild(el);
-      });
-    }
-
-    function selectHotspot(id) {
-      activeId = id;
-      const item = hotspots.find(h => h.id === id);
+    function loadDefaultCard() {
+      const item = hotspots[0];
       panelTitle.textContent = item.title;
       panelDescription.textContent = 'Question linked to the selected region of the page.';
       questionTitle.textContent = item.title;
       questionPrompt.textContent = item.prompt;
       answerText.textContent = item.answer;
       meta.innerHTML = item.tags.map(tag => `<span class="pill">${tag}</span>`).join('');
-      emptyState.hidden = true;
       questionCard.hidden = false;
-      answerBox.classList.remove('show');
-      renderHotspots();
+      answerBox.classList.add('show');
+      responseBox.value = '';
     }
 
-    toggleHotspotsBtn.addEventListener('click', () => {
-      hotspotsVisible = !hotspotsVisible;
-      toggleHotspotsBtn.textContent = hotspotsVisible ? 'Hide hotspots' : 'Show hotspots';
-      renderHotspots();
-    });
-
-    resetBtn.addEventListener('click', () => {
-      activeId = null;
-      panelTitle.textContent = 'Select a highlighted region';
-      panelDescription.textContent = 'Click a hotspot on the page to open a question tied to that exact part of the PDF page.';
-      emptyState.hidden = false;
-      questionCard.hidden = true;
-      responseBox.value = '';
-      answerBox.classList.remove('show');
-      renderHotspots();
-    });
-
-    showAnswerBtn.addEventListener('click', () => {
-      if (!activeId) return;
-      answerBox.classList.add('show');
-    });
-
-    clearBtn.addEventListener('click', () => {
-      responseBox.value = '';
-      responseBox.focus();
-    });
-
-    checkBtn.addEventListener('click', () => {
-      if (!activeId) return;
-      answerBox.classList.add('show');
-    });
-
-    renderHotspots();
+    loadDefaultCard();
   </script>
 </body>
 </html>
