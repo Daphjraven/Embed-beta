@@ -406,7 +406,8 @@
 
     function generateEmbedCode() {
       const url = window.location.href;
-      return `<iframe src="${url}" style="width:100%; height:600px; border:none;"></iframe>`;
+      return url;
+    }" style="width:100%; height:600px; border:none;"></iframe>`;
     }
 
     embedBtn.addEventListener('click', () => {
