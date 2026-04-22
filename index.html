@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blank PDF Canvas</title>
+  <title>PDF Canvas Reader</title>
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -11,6 +11,7 @@
       background: #ffffff;
       overflow: auto;
       font-family: Inter, Arial, sans-serif;
+      color: #333;
     }
 
     #viewer {
@@ -18,62 +19,115 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0;
       background: #ffffff;
-      padding-top: 0;
       width: 100%;
+      padding: 0;
+      margin: 0;
     }
 
     .page {
       position: relative;
       line-height: 0;
+      background: #ffffff;
+      margin: 0;
     }
 
     canvas {
       display: block;
       background: #ffffff;
-      margin: 0;
+      margin: 0 auto;
       padding: 0;
     }
 
-    iframe.drive-frame {
-      width: 100%;
-      height: 100vh;
-      border: 0;
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: auto;
+    }
+
+    .overlay.hotspot-mode {
+      cursor: crosshair;
+    }
+
+    .hotspot {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.96);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #444;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .hotspot-note {
+      position: absolute;
+      min-width: 180px;
+      max-width: 260px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.98);
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+      font-size: 13px;
+      line-height: 1.45;
+      color: #444;
+      top: 18px;
+      left: 18px;
+      display: none;
+      z-index: 4;
+      white-space: pre-wrap;
+    }
+
+    .hotspot-note.visible {
       display: block;
-      background: #ffffff;
+    }
+
+    .controls {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
     .floating-btn {
-      position: fixed;
-      left: 12px;
-      z-index: 1000;
       width: 34px;
       height: 34px;
       border: 1px solid rgba(0,0,0,0.08);
       border-radius: 999px;
-      background: rgba(255,255,255,0.92);
+      background: rgba(255,255,255,0.94);
       color: #444;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 15px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.08);
       backdrop-filter: blur(8px);
     }
 
-    #toggleFile { top: 12px; font-size: 15px; }
-    #toggleNotepad { top: 54px; font-size: 15px; }
+    .floating-btn.active {
+      background: #111;
+      color: #fff;
+    }
 
-    #filePanel,
     #notepadPanel,
     #embedPanel {
       position: fixed;
       left: 56px;
       z-index: 999;
-      width: min(420px, calc(100vw - 76px));
-      background: rgba(255,255,255,0.96);
+      width: min(360px, calc(100vw - 76px));
+      background: rgba(255,255,255,0.97);
       border: 1px solid rgba(0,0,0,0.08);
       border-radius: 16px;
       padding: 12px;
@@ -82,56 +136,56 @@
       backdrop-filter: blur(8px);
     }
 
-    #loaderPanel { top: 12px; }
-    #filePanel {
-      top: 54px;
-      width: min(320px, calc(100vw - 76px));
-    }
-    #notepadPanel {
-      top: 96px;
-      width: min(360px, calc(100vw - 76px));
-    }
-    #embedPanel {
-      top: 138px;
-      width: min(360px, calc(100vw - 76px));
-    }
+    #notepadPanel { top: 52px; }
+    #embedPanel { top: 92px; }
 
-    #filePanel.hidden,
     #notepadPanel.hidden,
-    #embedPanel.hidden {
+    #embedPanel.hidden,
+    #status.hidden {
       opacity: 0;
       pointer-events: none;
       transform: translateY(-8px);
+      display: none;
     }
 
-    .loader-title,
-    .notepad-title {
+    .panel-title {
       font-size: 13px;
       color: #666;
       margin-bottom: 8px;
     }
 
-    .loader-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    #pdfInput {
-      flex: 1;
-      min-width: 0;
-      border: 1px solid rgba(0,0,0,0.1);
+    #notepad,
+    #embedCode {
+      width: 100%;
+      border: 1px solid rgba(0,0,0,0.10);
       border-radius: 12px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       outline: none;
       font-size: 14px;
+      line-height: 1.5;
       background: #fff;
+      color: #333;
+      font-family: Inter, Arial, sans-serif;
     }
 
-    #loadBtn,
-    #pickFileBtn,
-    #clearNotesBtn,
-    #copyEmbedBtn {
+    #notepad {
+      min-height: 220px;
+      resize: vertical;
+    }
+
+    #embedCode {
+      min-height: 110px;
+      resize: none;
+    }
+
+    .panel-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .panel-btn {
       border: 1px solid rgba(0,0,0,0.08);
       border-radius: 12px;
       padding: 10px 12px;
@@ -141,8 +195,7 @@
       white-space: nowrap;
     }
 
-    #hint,
-    #noteHint {
+    .panel-hint {
       margin-top: 8px;
       font-size: 12px;
       color: #888;
@@ -157,60 +210,41 @@
       max-width: min(520px, calc(100vw - 24px));
       padding: 10px 12px;
       border-radius: 12px;
-      background: rgba(255,255,255,0.96);
+      background: rgba(255,255,255,0.97);
       border: 1px solid rgba(0,0,0,0.08);
       box-shadow: 0 6px 20px rgba(0,0,0,0.08);
       color: #555;
       font-size: 13px;
       line-height: 1.35;
     }
-
-    #status.hidden {
-      display: none;
-    }
-
-    #notepad {
-      width: 100%;
-      min-height: 220px;
-      resize: vertical;
-      border: 1px solid rgba(0,0,0,0.1);
-      border-radius: 12px;
-      padding: 12px 14px;
-      outline: none;
-      font-size: 14px;
-      line-height: 1.5;
-      background: #fff;
-      color: #333;
-      font-family: Inter, Arial, sans-serif;
-    }
-
-    .notepad-actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 8px;
-    }
   </style>
 </head>
 <body>
-  <button id="toggleFile" class="floating-btn" title="Load PDF from files">📄</button>
-  <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
-
-    <div id="filePanel" class="hidden">
-    <div class="notepad-title">Add PDF from files</div>
-    <input id="fileInput" type="file" accept="application/pdf" style="display:none;" />
-    <div class="notepad-actions" style="justify-content:flex-start; margin-top:0;">
-      <button id="pickFileBtn">Choose PDF</button>
-    </div>
-    <div id="noteHint">Load a PDF directly from your device into this viewer.</div>
+  <div class="controls">
+    <button id="uploadBtn" class="floating-btn" title="Upload PDF">📄</button>
+    <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
+    <button id="toggleHotspots" class="floating-btn" title="Add clickable hotspots">◎</button>
+    <button id="embedBtn" class="floating-btn" title="Copy current URL for Notion embed">⧉</button>
   </div>
 
+  <input id="fileInput" type="file" accept="application/pdf" style="display:none;" />
+
   <div id="notepadPanel" class="hidden">
-    <div class="notepad-title">Quick notepad</div>
+    <div class="panel-title">Quick notepad</div>
     <textarea id="notepad" placeholder="Write notes here..."></textarea>
-    <div class="notepad-actions">
-      <button id="clearNotesBtn">Clear</button>
+    <div class="panel-actions">
+      <button id="clearNotesBtn" class="panel-btn">Clear</button>
     </div>
-    <div id="noteHint">Your notes stay saved in this browser.</div>
+    <div class="panel-hint">Your notes stay saved in this browser.</div>
+  </div>
+
+  <div id="embedPanel" class="hidden">
+    <div class="panel-title">Notion Embed URL</div>
+    <textarea id="embedCode" readonly></textarea>
+    <div class="panel-actions">
+      <button id="copyEmbedBtn" class="panel-btn">Copy</button>
+    </div>
+    <div class="panel-hint">Paste this URL into a Notion embed block. Local file uploads stay local to this browser.</div>
   </div>
 
   <div id="viewer"></div>
@@ -222,21 +256,24 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
 
     const viewer = document.getElementById('viewer');
-    
-    const toggleFile = document.getElementById('toggleFile');
-    const toggleNotepad = document.getElementById('toggleNotepad');
-    
-    const filePanel = document.getElementById('filePanel');
-    const notepadPanel = document.getElementById('notepadPanel');
-    
     const fileInput = document.getElementById('fileInput');
-    
-    const pickFileBtn = document.getElementById('pickFileBtn');
-    const statusBox = document.getElementById('status');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const toggleNotepad = document.getElementById('toggleNotepad');
+    const toggleHotspots = document.getElementById('toggleHotspots');
+    const embedBtn = document.getElementById('embedBtn');
+    const notepadPanel = document.getElementById('notepadPanel');
+    const embedPanel = document.getElementById('embedPanel');
     const notepad = document.getElementById('notepad');
     const clearNotesBtn = document.getElementById('clearNotesBtn');
+    const embedCode = document.getElementById('embedCode');
+    const copyEmbedBtn = document.getElementById('copyEmbedBtn');
+    const statusBox = document.getElementById('status');
 
     const NOTE_KEY = 'embed_beta_notepad';
+    const HOTSPOT_KEY = 'embed_beta_hotspots';
+    let hotspotMode = false;
+    let currentDocKey = 'default';
+    let hotspotCounter = 0;
 
     function showStatus(message) {
       statusBox.textContent = message;
@@ -246,38 +283,6 @@
     function hideStatus() {
       statusBox.classList.add('hidden');
       statusBox.textContent = '';
-    }
-
-    
-
-    function extractDriveFileId(url) {
-      if (!url) return null;
-      const patterns = [
-        /\/file\/d\/([a-zA-Z0-9_-]+)/,
-        /[?&]id=([a-zA-Z0-9_-]+)/,
-        /\/d\/([a-zA-Z0-9_-]+)/
-      ];
-      for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) return match[1];
-      }
-      return null;
-    }
-
-    function isDriveLikeUrl(url) {
-      return /drive\.google\.com/i.test(url || '');
-    }
-
-    function getDrivePreviewUrl(input) {
-      const fileId = extractDriveFileId(input);
-      if (!fileId) return null;
-      return `https://drive.google.com/file/d/${fileId}/preview`;
-    }
-
-    function normalizeStoredUrl(input) {
-      const raw = (input || '').trim();
-      if (!raw) return '';
-      return raw;
     }
 
     function loadSavedNotes() {
@@ -294,64 +299,127 @@
       } catch {}
     }
 
-    async function renderDrivePreview(url) {
-      viewer.innerHTML = '';
-      const previewUrl = getDrivePreviewUrl(url);
-      if (!previewUrl) {
-        showStatus('Could not detect a Google Drive file ID from that link.');
-        return;
+    function getHotspotsStore() {
+      try {
+        return JSON.parse(localStorage.getItem(HOTSPOT_KEY) || '{}');
+      } catch {
+        return {};
       }
-      const frame = document.createElement('iframe');
-      frame.className = 'drive-frame';
-      frame.src = previewUrl;
-      frame.allow = 'autoplay';
-      viewer.appendChild(frame);
-      hideStatus();
     }
 
-    async function renderPdfCanvas(url) {
-      viewer.innerHTML = '';
+    function saveHotspotsStore(store) {
       try {
-        const pdf = await pdfjsLib.getDocument(url).promise;
+        localStorage.setItem(HOTSPOT_KEY, JSON.stringify(store));
+      } catch {}
+    }
 
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const viewport = page.getViewport({ scale: 1.35 });
+    function getCurrentHotspots() {
+      const store = getHotspotsStore();
+      return store[currentDocKey] || [];
+    }
 
-          const pageWrap = document.createElement('div');
-          pageWrap.className = 'page';
+    function setCurrentHotspots(hotspots) {
+      const store = getHotspotsStore();
+      store[currentDocKey] = hotspots;
+      saveHotspotsStore(store);
+    }
 
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
-          const ratio = window.devicePixelRatio || 1;
+    function makeDocKey(label, bytes) {
+      return `${label}::${bytes}`;
+    }
 
-          canvas.width = Math.floor(viewport.width * ratio);
-          canvas.height = Math.floor(viewport.height * ratio);
-          canvas.style.width = `${viewport.width}px`;
-          canvas.style.height = `${viewport.height}px`;
+    function togglePanel(panel, button, openIcon) {
+      const hidden = panel.classList.toggle('hidden');
+      button.textContent = hidden ? openIcon : '×';
+    }
 
-          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    function generateEmbedUrl() {
+      return window.location.href;
+    }
 
-          pageWrap.appendChild(canvas);
-          viewer.appendChild(pageWrap);
+    function createHotspotElement(item, overlay) {
+      const dot = document.createElement('div');
+      dot.className = 'hotspot';
+      dot.style.left = `${item.x}%`;
+      dot.style.top = `${item.y}%`;
+      dot.textContent = item.label;
 
-          await page.render({
-            canvasContext: context,
-            viewport
-          }).promise;
-        }
-        hideStatus();
-      } catch (error) {
-        console.error(error);
-        viewer.innerHTML = '';
-        showStatus('This PDF could not be rendered on the blank canvas. If it is from Google Drive, try the original share link instead of a uc/export link.');
-      }
+      const note = document.createElement('div');
+      note.className = 'hotspot-note';
+      note.textContent = item.text;
+      dot.appendChild(note);
+
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        overlay.querySelectorAll('.hotspot-note.visible').forEach(el => {
+          if (el !== note) el.classList.remove('visible');
+        });
+        note.classList.toggle('visible');
+      });
+
+      dot.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const updated = prompt('Edit hotspot text:', item.text);
+        if (updated === null) return;
+        item.text = updated.trim();
+        note.textContent = item.text || '(empty)';
+        const all = getCurrentHotspots().map(h => h.id === item.id ? item : h);
+        setCurrentHotspots(all);
+      });
+
+      dot.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!confirm('Delete this hotspot?')) return;
+        const all = getCurrentHotspots().filter(h => h.id !== item.id);
+        setCurrentHotspots(all);
+        dot.remove();
+      });
+
+      overlay.appendChild(dot);
+    }
+
+    function renderHotspotsForPage(pageNumber, overlay) {
+      const hotspots = getCurrentHotspots().filter(item => item.page === pageNumber);
+      hotspots.forEach(item => createHotspotElement(item, overlay));
+    }
+
+    function attachOverlayInteractions(overlay, pageNumber) {
+      overlay.addEventListener('click', (e) => {
+        overlay.querySelectorAll('.hotspot-note.visible').forEach(el => el.classList.remove('visible'));
+        if (!hotspotMode) return;
+        if (e.target.closest('.hotspot')) return;
+
+        const rect = overlay.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        const text = prompt('Hotspot text:');
+        if (text === null) return;
+
+        hotspotCounter += 1;
+        const item = {
+          id: crypto.randomUUID(),
+          page: pageNumber,
+          x: +x.toFixed(3),
+          y: +y.toFixed(3),
+          text: text.trim() || '(empty)',
+          label: hotspotCounter
+        };
+
+        const all = getCurrentHotspots();
+        all.push(item);
+        setCurrentHotspots(all);
+        createHotspotElement(item, overlay);
+      });
     }
 
     async function renderPdfData(data, label = 'Local PDF') {
       viewer.innerHTML = '';
       try {
         const pdf = await pdfjsLib.getDocument({ data }).promise;
+        currentDocKey = makeDocKey(label, data.byteLength || 0);
+        const existing = getCurrentHotspots();
+        hotspotCounter = existing.reduce((max, item) => Math.max(max, Number(item.label) || 0), 0);
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
@@ -359,6 +427,8 @@
 
           const pageWrap = document.createElement('div');
           pageWrap.className = 'page';
+          pageWrap.style.width = `${viewport.width}px`;
+          pageWrap.style.height = `${viewport.height}px`;
 
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
@@ -368,16 +438,23 @@
           canvas.height = Math.floor(viewport.height * ratio);
           canvas.style.width = `${viewport.width}px`;
           canvas.style.height = `${viewport.height}px`;
-
           context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay';
+          if (hotspotMode) overlay.classList.add('hotspot-mode');
+
           pageWrap.appendChild(canvas);
+          pageWrap.appendChild(overlay);
           viewer.appendChild(pageWrap);
 
           await page.render({
             canvasContext: context,
             viewport
           }).promise;
+
+          attachOverlayInteractions(overlay, pageNum);
+          renderHotspotsForPage(pageNum, overlay);
         }
         hideStatus();
       } catch (error) {
@@ -387,48 +464,42 @@
       }
     }
 
-    async function renderSource(url) {
-      const raw = normalizeStoredUrl(url);
-      if (!raw) return;
-      if (isDriveLikeUrl(raw)) {
-        await renderDrivePreview(raw);
-      } else {
-        await renderPdfCanvas(raw);
-      }
-    }
+    uploadBtn.addEventListener('click', () => fileInput.click());
 
-    , '', next.toString());
-      renderSource(url);
-      loaderPanel.classList.add('hidden');
-      toggleLoader.textContent = '+';
-    }
-
-    
-      toggleLoader.textContent = hidden ? '+' : '×';
-    });
-
-    toggleFile.addEventListener('click', () => {
-      const hidden = filePanel.classList.toggle('hidden');
-      toggleFile.textContent = hidden ? '📄' : '×';
-    });
-
-    toggleNotepad.addEventListener('click', () => {
-      const hidden = notepadPanel.classList.toggle('hidden');
-      toggleNotepad.textContent = hidden ? '✎' : '×';
-    });
-
-    
-    pickFileBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
       const buffer = await file.arrayBuffer();
       await renderPdfData(buffer, file.name);
-      filePanel.classList.add('hidden');
-      toggleFile.textContent = '📄';
-      showStatus(`Loaded ${file.name} from files.`);
+      showStatus(`Loaded ${file.name}.`);
+      setTimeout(hideStatus, 1800);
     });
-    
+
+    toggleNotepad.addEventListener('click', () => {
+      togglePanel(notepadPanel, toggleNotepad, '✎');
+    });
+
+    toggleHotspots.addEventListener('click', () => {
+      hotspotMode = !hotspotMode;
+      toggleHotspots.classList.toggle('active', hotspotMode);
+      document.querySelectorAll('.overlay').forEach(overlay => {
+        overlay.classList.toggle('hotspot-mode', hotspotMode);
+      });
+      showStatus(hotspotMode ? 'Hotspot mode on. Click the PDF to place a note.' : 'Hotspot mode off.');
+      setTimeout(hideStatus, 1600);
+    });
+
+    embedBtn.addEventListener('click', () => {
+      togglePanel(embedPanel, embedBtn, '⧉');
+      if (!embedPanel.classList.contains('hidden')) {
+        embedCode.value = generateEmbedUrl();
+      }
+    });
+
+    copyEmbedBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(embedCode.value);
+      showStatus('Embed URL copied.');
+      setTimeout(hideStatus, 1400);
     });
 
     notepad.value = loadSavedNotes();
@@ -439,43 +510,6 @@
     clearNotesBtn.addEventListener('click', () => {
       notepad.value = '';
       saveNotes('');
-    });
-
-    
-  </script>
-  <button id="embedBtn" class="floating-btn" style="top:138px; font-size:14px;">⧉</button>
-
-  <div id="embedPanel" class="hidden" style="top:138px;">
-    <div class="notepad-title">Notion Embed Code</div>
-    <textarea id="embedCode" readonly style="width:100%; min-height:120px; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:10px;"></textarea>
-    <div class="notepad-actions">
-      <button id="copyEmbedBtn">Copy</button>
-    </div>
-    <div id="noteHint">Paste this into a Notion embed block.</div>
-  </div>
-
-  <script>
-    const embedBtn = document.getElementById('embedBtn');
-    const embedPanel = document.getElementById('embedPanel');
-    const embedCode = document.getElementById('embedCode');
-    const copyEmbedBtn = document.getElementById('copyEmbedBtn');
-
-    function generateEmbedCode() {
-      const url = window.location.href;
-      return url;
-    }" style="width:100%; height:600px; border:none;"></iframe>`;
-    }
-
-    embedBtn.addEventListener('click', () => {
-      const hidden = embedPanel.classList.toggle('hidden');
-      embedBtn.textContent = hidden ? '⧉' : '×';
-      if (!hidden) {
-        embedCode.value = generateEmbedCode();
-      }
-    });
-
-    copyEmbedBtn.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(embedCode.value);
     });
   </script>
 </body>
