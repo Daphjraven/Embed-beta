@@ -335,6 +335,7 @@
     <button id="uploadBtn" class="floating-btn" title="Upload PDF">📄</button>
     <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
     <button id="toggleHotspots" class="floating-btn" title="Add clickable hotspots">◎</button>
+    <button id="saveSessionBtn" class="floating-btn" title="Save session and copy shareable URL">💾</button>
     <button id="embedBtn" class="floating-btn" title="Copy current URL for Notion embed">⧉</button>
   </div>
 
@@ -371,6 +372,7 @@
     const uploadBtn = document.getElementById('uploadBtn');
     const toggleNotepad = document.getElementById('toggleNotepad');
     const toggleHotspots = document.getElementById('toggleHotspots');
+    essionBtn');
     const embedBtn = document.getElementById('embedBtn');
     const notepadPanel = document.getElementById('notepadPanel');
     const embedPanel = document.getElementById('embedPanel');
@@ -445,7 +447,31 @@
     }
 
     function generateEmbedUrl() {
-      return window.location.href;
+      return window.loc    hotspots: getHotspotsStore(),
+        notes: localStorage.getItem(NOTE_KEY) || ''
+      };
+    }
+
+    function generateSessionURL() {
+      const data = getSessionData();
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      const url = new URL(window.location.href);
+      url.searchParams.set('session', encoded);
+      return url.toString();
+    }
+
+    function loadSessionFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      const session = params.get('session');
+      if (!session) return;
+
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(session))));
+        if (decoded.notes) localStorage.setItem(NOTE_KEY, decoded.notes);
+        if (decoded.hotspots) localStorage.setItem(HOTSPOT_KEY, JSON.stringify(decoded.hotspots));
+      } catch (e) {
+        console.error('Failed to load session', e);
+      }
     }
 
     function createHotspotElement(item, overlay) {
@@ -797,17 +823,14 @@
         const rect = overlay.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
-        const text = prompt('Hotspot text:');
-        if (text === null) return;
+        const text = '';
 
         hotspotCounter += 1;
         const item = {
           id: crypto.randomUUID(),
           page: pageNumber,
           x: +x.toFixed(3),
-          y: +y.toFixed(3),
-          text: text.trim() || '(empty)',
-          label: hotspotCounter,
+        label: hotspotCounter,
           windowLeft: 22,
           windowTop: 22,
           blocks: [
@@ -906,6 +929,13 @@
       setTimeout(hideStatus, 1600);
     });
 
+    saveSessionBtn.addEventListener('click', async () => {
+      const url = generateSessionURL();
+      await navigator.clipboard.writeText(url);
+      showStatus('Session saved and URL copied.');
+      setTimeout(hideStatus, 1600);
+    });
+
     embedBtn.addEventListener('click', () => {
       togglePanel(embedPanel, embedBtn, '⧉');
       if (!embedPanel.classList.contains('hidden')) {
@@ -919,6 +949,7 @@
       setTimeout(hideStatus, 1400);
     });
 
+    loadSessionFromURL();
     notepad.value = loadSavedNotes();
     notepad.addEventListener('input', () => {
       saveNotes(notepad.value);
