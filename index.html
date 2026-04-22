@@ -387,5 +387,39 @@
       renderSource(initialPdf);
     }
   </script>
+  <button id="embedBtn" class="floating-btn" style="top:96px; font-size:14px;">⧉</button>
+
+  <div id="embedPanel" class="hidden" style="top:96px;">
+    <div class="notepad-title">Notion Embed Code</div>
+    <textarea id="embedCode" readonly style="width:100%; min-height:120px; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:10px;"></textarea>
+    <div class="notepad-actions">
+      <button id="copyEmbedBtn">Copy</button>
+    </div>
+    <div id="noteHint">Paste this into a Notion embed block.</div>
+  </div>
+
+  <script>
+    const embedBtn = document.getElementById('embedBtn');
+    const embedPanel = document.getElementById('embedPanel');
+    const embedCode = document.getElementById('embedCode');
+    const copyEmbedBtn = document.getElementById('copyEmbedBtn');
+
+    function generateEmbedCode() {
+      const url = window.location.href;
+      return `<iframe src="${url}" style="width:100%; height:600px; border:none;"></iframe>`;
+    }
+
+    embedBtn.addEventListener('click', () => {
+      const hidden = embedPanel.classList.toggle('hidden');
+      embedBtn.textContent = hidden ? '⧉' : '×';
+      if (!hidden) {
+        embedCode.value = generateEmbedCode();
+      }
+    });
+
+    copyEmbedBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(embedCode.value);
+    });
+  </script>
 </body>
 </html>
