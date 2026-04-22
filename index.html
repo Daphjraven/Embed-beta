@@ -332,6 +332,7 @@
 </head>
 <body>
   <div class="controls">
+    <button id="toggleUrlPanel" class="floating-btn" title="Load PDF from URL">＋</button>
     <button id="uploadBtn" class="floating-btn" title="Upload PDF">📄</button>
     <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
     <button id="toggleHotspots" class="floating-btn" title="Add clickable hotspots">◎</button>
@@ -340,6 +341,15 @@
   </div>
 
   <input id="fileInput" type="file" accept="application/pdf" style="display:none;" />
+
+  <div id="urlPanel" class="hidden" style="position:fixed; left:56px; top:12px; z-index:999; width:min(420px, calc(100vw - 76px)); background:rgba(255,255,255,0.97); border:1px solid rgba(0,0,0,0.08); border-radius:16px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,0.10); backdrop-filter:blur(8px);">
+    <div class="panel-title">PDF URL</div>
+    <input id="pdfUrlInput" type="text" placeholder="Paste a direct PDF URL here" style="width:100%; border:1px solid rgba(0,0,0,0.10); border-radius:12px; padding:10px 12px; font-size:14px;" />
+    <div class="panel-actions">
+      <button id="loadUrlBtn" class="panel-btn">Load URL</button>
+    </div>
+    <div class="panel-hint">This is best for a persistent Notion-embeddable PDF source.</div>
+  </div>
 
   <div id="notepadPanel" class="hidden">
     <div class="panel-title">Quick notepad</div>
@@ -369,10 +379,14 @@
 
     const viewer = document.getElementById('viewer');
     const fileInput = document.getElementById('fileInput');
+    const toggleUrlPanel = document.getElementById('toggleUrlPanel');
+    const pdfUrlInput = document.getElementById('pdfUrlInput');
+    const loadUrlBtn = document.getElementById('loadUrlBtn');
+    const urlPanel = document.getElementById('urlPanel');
     const uploadBtn = document.getElementById('uploadBtn');
     const toggleNotepad = document.getElementById('toggleNotepad');
     const toggleHotspots = document.getElementById('toggleHotspots');
-    essionBtn');
+    const saveSessionBtn = document.getElementById('saveSessionBtn');
     const embedBtn = document.getElementById('embedBtn');
     const notepadPanel = document.getElementById('notepadPanel');
     const embedPanel = document.getElementById('embedPanel');
@@ -447,7 +461,24 @@
     }
 
     function generateEmbedUrl() {
-      return window.loc    hotspots: getHotspotsStore(),
+      return window.location.href;
+    }
+
+    function getQueryPdfUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('pdf') || '';
+    }
+
+    function setQueryPdfUrl(url) {
+      const next = new URL(window.location.href);
+      if (url) next.searchParams.set('pdf', url);
+      else next.searchParams.delete('pdf');
+      window.history.replaceState({}, '', next.toString());
+    }
+
+    function getSessionData() {
+      return {
+        hotspots: getHotspotsStore(),
         notes: localStorage.getItem(NOTE_KEY) || ''
       };
     }
@@ -830,7 +861,9 @@
           id: crypto.randomUUID(),
           page: pageNumber,
           x: +x.toFixed(3),
-        label: hotspotCounter,
+          y: +y.toFixed(3),
+          text: text.trim() || '(empty)',
+          label: hotspotCounter,
           windowLeft: 22,
           windowTop: 22,
           blocks: [
@@ -851,6 +884,53 @@
         setCurrentHotspots(all);
         createHotspotElement(item, overlay);
       });
+    }
+
+    async function renderPdfFromUrl(url, label = 'Remote PDF') {
+      viewer.innerHTML = '';
+      try {
+        const pdf = await pdfjsLib.getDocument(url).promise;
+        currentDocKey = makeDocKey(label, url);
+        const existing = getCurrentHotspots();
+        hotspotCounter = existing.reduce((max, item) => Math.max(max, Number(item.label) || 0), 0);
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1.35 });
+
+          const pageWrap = document.createElement('div');
+          pageWrap.className = 'page';
+          pageWrap.style.width = `${viewport.width}px`;
+          pageWrap.style.height = `${viewport.height}px`;
+
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          const ratio = window.devicePixelRatio || 1;
+
+          canvas.width = Math.floor(viewport.width * ratio);
+          canvas.height = Math.floor(viewport.height * ratio);
+          canvas.style.width = `${viewport.width}px`;
+          canvas.style.height = `${viewport.height}px`;
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay';
+          if (hotspotMode) overlay.classList.add('hotspot-mode');
+
+          pageWrap.appendChild(canvas);
+          pageWrap.appendChild(overlay);
+          viewer.appendChild(pageWrap);
+
+          await page.render({ canvasContext: context, viewport }).promise;
+          attachOverlayInteractions(overlay, pageNum);
+          renderHotspotsForPage(pageNum, overlay);
+        }
+        hideStatus();
+      } catch (error) {
+        console.error(error);
+        viewer.innerHTML = '';
+        showStatus(`Could not render ${label}.`);
+      }
     }
 
     async function renderPdfData(data, label = 'Local PDF') {
@@ -904,12 +984,37 @@
       }
     }
 
-    uploadBtn.addEventListener('click', () => fileInput.click());
+    toggleUrlPanel.addEventListener('click', () => {
+      const hidden = urlPanel.classList.toggle('hidden');
+      toggleUrlPanel.textContent = hidden ? '＋' : '×';
+    });
+
+    loadUrlBtn.addEventListener('click', async () => {
+      const url = (pdfUrlInput.value || '').trim();
+      if (!url) return;
+      setQueryPdfUrl(url);
+      await renderPdfFromUrl(url, 'Remote PDF');
+      urlPanel.classList.add('hidden');
+      toggleUrlPanel.textContent = '＋';
+      showStatus('Loaded PDF from URL.');
+      setTimeout(hideStatus, 1600);
+    });
+
+    pdfUrlInput.addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      loadUrlBtn.click();
+    });
+
+    uploadBtn.addEventListener('click', () => {
+      fileInput.value = '';
+      fileInput.click();
+    });
 
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
       const buffer = await file.arrayBuffer();
+      setQueryPdfUrl('');
       await renderPdfData(buffer, file.name);
       showStatus(`Loaded ${file.name}.`);
       setTimeout(hideStatus, 1800);
@@ -959,6 +1064,12 @@
       notepad.value = '';
       saveNotes('');
     });
+
+    const initialPdfUrl = getQueryPdfUrl();
+    if (initialPdfUrl) {
+      pdfUrlInput.value = initialPdfUrl;
+      renderPdfFromUrl(initialPdfUrl, 'Remote PDF');
+    }
   </script>
 </body>
 </html>
