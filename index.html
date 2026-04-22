@@ -64,10 +64,13 @@
     }
 
     #toggleLoader { top: 12px; }
-    #toggleNotepad { top: 54px; font-size: 15px; }
+    #toggleFile { top: 54px; font-size: 15px; }
+    #toggleNotepad { top: 96px; font-size: 15px; }
 
     #loaderPanel,
-    #notepadPanel {
+    #filePanel,
+    #notepadPanel,
+    #embedPanel {
       position: fixed;
       left: 56px;
       z-index: 999;
@@ -82,13 +85,23 @@
     }
 
     #loaderPanel { top: 12px; }
-    #notepadPanel {
+    #filePanel {
       top: 54px;
+      width: min(320px, calc(100vw - 76px));
+    }
+    #notepadPanel {
+      top: 96px;
+      width: min(360px, calc(100vw - 76px));
+    }
+    #embedPanel {
+      top: 138px;
       width: min(360px, calc(100vw - 76px));
     }
 
     #loaderPanel.hidden,
-    #notepadPanel.hidden {
+    #filePanel.hidden,
+    #notepadPanel.hidden,
+    #embedPanel.hidden {
       opacity: 0;
       pointer-events: none;
       transform: translateY(-8px);
@@ -119,7 +132,9 @@
     }
 
     #loadBtn,
-    #clearNotesBtn {
+    #pickFileBtn,
+    #clearNotesBtn,
+    #copyEmbedBtn {
       border: 1px solid rgba(0,0,0,0.08);
       border-radius: 12px;
       padding: 10px 12px;
@@ -181,6 +196,7 @@
 </head>
 <body>
   <button id="toggleLoader" class="floating-btn" title="Show or hide PDF loader">+</button>
+  <button id="toggleFile" class="floating-btn" title="Load PDF from files">📄</button>
   <button id="toggleNotepad" class="floating-btn" title="Show or hide notepad">✎</button>
 
   <div id="loaderPanel" class="hidden">
@@ -190,6 +206,15 @@
       <button id="loadBtn">Load PDF</button>
     </div>
     <div id="hint">Google Drive links will open in a lightweight Drive preview. Direct PDF links will render on the blank canvas.</div>
+  </div>
+
+  <div id="filePanel" class="hidden">
+    <div class="notepad-title">Add PDF from files</div>
+    <input id="fileInput" type="file" accept="application/pdf" style="display:none;" />
+    <div class="notepad-actions" style="justify-content:flex-start; margin-top:0;">
+      <button id="pickFileBtn">Choose PDF</button>
+    </div>
+    <div id="noteHint">Load a PDF directly from your device into this viewer.</div>
   </div>
 
   <div id="notepadPanel" class="hidden">
@@ -211,11 +236,15 @@
 
     const viewer = document.getElementById('viewer');
     const toggleLoader = document.getElementById('toggleLoader');
+    const toggleFile = document.getElementById('toggleFile');
     const toggleNotepad = document.getElementById('toggleNotepad');
     const loaderPanel = document.getElementById('loaderPanel');
+    const filePanel = document.getElementById('filePanel');
     const notepadPanel = document.getElementById('notepadPanel');
     const pdfInput = document.getElementById('pdfInput');
+    const fileInput = document.getElementById('fileInput');
     const loadBtn = document.getElementById('loadBtn');
+    const pickFileBtn = document.getElementById('pickFileBtn');
     const statusBox = document.getElementById('status');
     const notepad = document.getElementById('notepad');
     const clearNotesBtn = document.getElementById('clearNotesBtn');
@@ -335,6 +364,45 @@
       }
     }
 
+    async function renderPdfData(data, label = 'Local PDF') {
+      viewer.innerHTML = '';
+      try {
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1.35 });
+
+          const pageWrap = document.createElement('div');
+          pageWrap.className = 'page';
+
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          const ratio = window.devicePixelRatio || 1;
+
+          canvas.width = Math.floor(viewport.width * ratio);
+          canvas.height = Math.floor(viewport.height * ratio);
+          canvas.style.width = `${viewport.width}px`;
+          canvas.style.height = `${viewport.height}px`;
+
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+          pageWrap.appendChild(canvas);
+          viewer.appendChild(pageWrap);
+
+          await page.render({
+            canvasContext: context,
+            viewport
+          }).promise;
+        }
+        hideStatus();
+      } catch (error) {
+        console.error(error);
+        viewer.innerHTML = '';
+        showStatus(`Could not render ${label}.`);
+      }
+    }
+
     async function renderSource(url) {
       const raw = normalizeStoredUrl(url);
       if (!raw) return;
@@ -361,12 +429,27 @@
       toggleLoader.textContent = hidden ? '+' : '×';
     });
 
+    toggleFile.addEventListener('click', () => {
+      const hidden = filePanel.classList.toggle('hidden');
+      toggleFile.textContent = hidden ? '📄' : '×';
+    });
+
     toggleNotepad.addEventListener('click', () => {
       const hidden = notepadPanel.classList.toggle('hidden');
       toggleNotepad.textContent = hidden ? '✎' : '×';
     });
 
     loadBtn.addEventListener('click', loadFromInput);
+    pickFileBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const buffer = await file.arrayBuffer();
+      await renderPdfData(buffer, file.name);
+      filePanel.classList.add('hidden');
+      toggleFile.textContent = '📄';
+      showStatus(`Loaded ${file.name} from files.`);
+    });
     pdfInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadFromInput();
     });
@@ -387,9 +470,9 @@
       renderSource(initialPdf);
     }
   </script>
-  <button id="embedBtn" class="floating-btn" style="top:96px; font-size:14px;">⧉</button>
+  <button id="embedBtn" class="floating-btn" style="top:138px; font-size:14px;">⧉</button>
 
-  <div id="embedPanel" class="hidden" style="top:96px;">
+  <div id="embedPanel" class="hidden" style="top:138px;">
     <div class="notepad-title">Notion Embed Code</div>
     <textarea id="embedCode" readonly style="width:100%; min-height:120px; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:10px;"></textarea>
     <div class="notepad-actions">
